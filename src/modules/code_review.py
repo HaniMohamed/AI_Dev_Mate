@@ -1,7 +1,7 @@
 # src/modules/code_review.py
-from core.models import BaseTask
-from services.ollama_service import OllamaService
-from services.git_service import GitService
+from src.core.models import BaseTask
+from src.services.ollama_service import OllamaService
+from src.services.git_service import GitService
 
 class CodeReviewTask(BaseTask):
     def __init__(self, ollama: OllamaService):

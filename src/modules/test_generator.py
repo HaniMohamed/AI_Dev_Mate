@@ -1,7 +1,7 @@
 # src/modules/test_generator.py
-from core.models import BaseTask
-from services.ollama_service import OllamaService
-from services.file_service import FileService
+from src.core.models import BaseTask
+from src.services.ollama_service import OllamaService
+from src.services.file_service import FileService
 
 class TestGeneratorTask(BaseTask):
     def __init__(self, ollama: OllamaService):

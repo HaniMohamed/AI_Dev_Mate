@@ -1,11 +1,13 @@
 # src/main.py
 import argparse
 import logging
-from services.ollama_service import OllamaService
-from modules.code_review import CodeReviewTask
-from modules.commit_generator import CommitGeneratorTask
-from modules.test_generator import TestGeneratorTask
-from modules.doc_generator import DocGeneratorTask
+from src.services.ollama_service import OllamaService
+from src.modules.code_review import CodeReviewTask
+from src.modules.commit_generator import CommitGeneratorTask
+from src.modules.test_generator import TestGeneratorTask
+from src.modules.doc_generator import DocGeneratorTask
+from src.services.repo_indexer import RepoIndexer
+from src.modules.repo_indexer_task import RepoIndexTask
 
 # ==========================
 # Logging setup
@@ -26,6 +28,7 @@ AVAILABLE_TASKS = {
     "commit_generator": lambda: CommitGeneratorTask(ollama_service),
     "test_generator": lambda: TestGeneratorTask(ollama_service),
     "doc_generator": lambda: DocGeneratorTask(ollama_service),
+    "repo_indexer": lambda: RepoIndexTask(),
 }
 
 # ==========================
@@ -51,6 +54,8 @@ def main():
     parser = argparse.ArgumentParser(description="Ollama Dev-Mate CLI")
     parser.add_argument("--list", action="store_true", help="List all available tasks")
     parser.add_argument("--run", type=str, help="Run a specific task by name")
+    parser.add_argument("--index", type=str, metavar="PATH", help="Index a repository at PATH and output a summary")
+    parser.add_argument("--with-context", action="store_true", help="Generate per-file AI context using the configured Ollama model (slow)")
 
     args = parser.parse_args()
 
@@ -58,6 +63,11 @@ def main():
         list_tasks()
     elif args.run:
         run_task(args.run)
+    elif args.index:
+        idx = RepoIndexer(ollama=ollama_service)
+        index = idx.index(args.index, generate_context=bool(args.with_context))
+        print("\n=== Index Summary ===")
+        print(idx.summarize(index))
     else:
         parser.print_help()
 
