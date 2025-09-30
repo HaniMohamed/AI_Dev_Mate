@@ -1,4 +1,9 @@
 # src/main.py
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+
 import argparse
 import logging
 from src.services.ollama_service import OllamaService
@@ -43,6 +48,16 @@ def run_task(task_name: str):
     if task_name not in AVAILABLE_TASKS:
         logger.error(f"Task '{task_name}' not found!")
         return
+    # Require repository index for all tasks except the indexer itself
+    if task_name != "repo_indexer":
+        repo_root = os.getcwd()
+        idx = RepoIndexer(ollama=ollama_service)
+        if not idx.index_exists(repo_root):
+            logger.error(
+                "No index found for current directory. Please run indexing first: "
+                "python -m src.main --index . [--with-context]"
+            )
+            return
     logger.info(f"Running task: {task_name}")
     task = AVAILABLE_TASKS[task_name]()
     task.run()

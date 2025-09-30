@@ -393,3 +393,25 @@ class RepoIndexer:
             "Framework hints: " + (", ".join(hints) if hints else "-"),
         ]
         return "\n".join(lines)
+
+    # --------------------------
+    # Index file helpers
+    # --------------------------
+    def _index_file_path(self, repo_path: str) -> str:
+        root = os.path.abspath(repo_path)
+        return os.path.join(root, ".aidm_index", "index.json")
+
+    def index_exists(self, repo_path: str) -> bool:
+        """Return True if an index file exists under <repo>/.aidm_index/index.json."""
+        return os.path.isfile(self._index_file_path(repo_path))
+
+    def load_index(self, repo_path: str) -> Dict[str, Any]:
+        """Load and return the index JSON if present; otherwise return an empty dict."""
+        path = self._index_file_path(repo_path)
+        if not os.path.isfile(path):
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
