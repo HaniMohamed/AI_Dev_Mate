@@ -49,7 +49,7 @@ def list_tasks():
     aidm_console.print_header("🤖 AI Dev Mate", "Available Tasks")
     
     task_descriptions = {
-        "code_review": "🔍 AI-powered code analysis and suggestions",
+        "code_review": "🔍 Aggressive AI-powered code review with branch comparison",
         "commit_generator": "📝 Intelligent commit message generation",
         "test_generator": "🧪 Automated test case generation",
         "doc_generator": "📚 AI-generated documentation",
@@ -69,7 +69,7 @@ def list_tasks():
     aidm_console.print_table(table)
     aidm_console.print_info("Use --run <task_name> to execute a task")
 
-def run_task(task_name: str, force_refresh: bool = False):
+def run_task(task_name: str, force_refresh: bool = False, base_branch: str = None, target_branch: str = None, repo_path: str = None):
     """Run a specific task with beautiful output."""
     if task_name not in AVAILABLE_TASKS:
         aidm_console.print_error(f"Task '{task_name}' not found!")
@@ -77,7 +77,7 @@ def run_task(task_name: str, force_refresh: bool = False):
     
     # Show task header
     task_descriptions = {
-        "code_review": "🔍 Code Review",
+        "code_review": "🔍 Aggressive Code Review",
         "commit_generator": "📝 Commit Generator", 
         "test_generator": "🧪 Test Generator",
         "doc_generator": "📚 Documentation Generator",
@@ -119,7 +119,18 @@ def run_task(task_name: str, force_refresh: bool = False):
     aidm_console.print_primary(f"Running task: {task_name}")
     
     try:
-        task = AVAILABLE_TASKS[task_name]()
+        # Create task with repo_path if provided
+        if task_name == "code_review":
+            task = CodeReviewTask(ollama_service, repo_path)
+        elif task_name == "repo_indexer":
+            task = RepoIndexTask(repo_path, force_refresh)
+        else:
+            task = AVAILABLE_TASKS[task_name]()
+        
+        # Pass additional arguments to code review task
+        if task_name == "code_review" and hasattr(task, 'set_review_params'):
+            task.set_review_params(base_branch, target_branch)
+        
         task.run()
         
         aidm_console.print_separator()
@@ -140,7 +151,10 @@ def main():
 Examples:
   python -m src.main --list                    # List all available tasks
   python -m src.main --index .                 # Index current directory
-  python -m src.main --run code_review         # Run code review task
+  python -m src.main --run code_review --repo-path .  # Run code review on current directory
+  python -m src.main --run code_review --repo-path /path/to/repo --base-branch main --target-branch feature-branch
+  python -m src.main --run code_review --repo-path . --base-branch develop  # Compare current changes with develop branch
+  python -m src.main --run repo_indexer --repo-path /path/to/repo  # Index specific repository
   python -m src.main --check-index /path/to/repo  # Check index status
         """
     )
@@ -152,13 +166,20 @@ Examples:
     parser.add_argument("--force-refresh", action="store_true", help="Force refresh index if stale when running tasks")
     parser.add_argument("--no-progress", action="store_true", help="Disable progress bars during indexing")
     parser.add_argument("--check-index", type=str, metavar="PATH", help="Check if index exists and is valid for PATH")
+    parser.add_argument("--repo-path", type=str, metavar="PATH", help="Path to repository (for tasks that require it)")
+    
+    # Code review specific arguments
+    parser.add_argument("--base-branch", type=str, metavar="BRANCH", help="Base branch to compare against (default: main)")
+    parser.add_argument("--target-branch", type=str, metavar="BRANCH", help="Target branch to compare (default: current changes)")
 
     args = parser.parse_args()
 
     if args.list:
         list_tasks()
     elif args.run:
-        run_task(args.run, force_refresh=args.force_refresh)
+        run_task(args.run, force_refresh=args.force_refresh, 
+                base_branch=args.base_branch, target_branch=args.target_branch,
+                repo_path=args.repo_path)
     elif args.index:
         aidm_console.print_header("📁 Repository Indexing", f"Indexing: {args.index}")
         

@@ -53,3 +53,55 @@ def check_and_load_index(repo_path: str = None, ollama: OllamaService = None) ->
         return None
     
     return index_data
+
+def create_aggressive_review_prompt(diff: str, project_context: dict = None) -> str:
+    """
+    Create an aggressive code review prompt that focuses on finding bugs, anti-patterns, and improvements.
+    
+    Args:
+        diff: The git diff to review
+        project_context: Project metadata from index
+    
+    Returns:
+        Formatted prompt for aggressive code review
+    """
+    context_info = ""
+    if project_context:
+        languages = project_context.get('summary', {}).get('languages', {})
+        frameworks = project_context.get('summary', {}).get('framework_hints', [])
+        context_info = f"""
+PROJECT CONTEXT:
+- Languages: {languages}
+- Frameworks: {frameworks}
+"""
+    
+    prompt = f"""You are an expert senior software engineer conducting an AGGRESSIVE code review. Your job is to find EVERYTHING wrong with this code and provide brutally honest feedback.
+
+{context_info}
+
+REVIEW GUIDELINES - BE EXTREMELY CRITICAL:
+1. **SECURITY VULNERABILITIES**: Look for SQL injection, XSS, CSRF, authentication bypasses, data leaks, unsafe deserialization, path traversal, etc.
+2. **PERFORMANCE ISSUES**: Memory leaks, inefficient algorithms, N+1 queries, missing indexes, excessive API calls, blocking operations
+3. **BUGS & LOGIC ERRORS**: Off-by-one errors, null pointer exceptions, race conditions, unhandled edge cases, incorrect calculations
+4. **CODE SMELLS**: Long methods, deep nesting, magic numbers, duplicate code, god objects, feature envy
+5. **ANTI-PATTERNS**: Singleton abuse, tight coupling, violation of SOLID principles, improper error handling
+6. **MAINTAINABILITY**: Poor naming, lack of documentation, complex conditionals, missing tests
+7. **ARCHITECTURAL ISSUES**: Violation of separation of concerns, improper layering, circular dependencies
+
+REVIEW FORMAT:
+For each issue found, provide:
+- **SEVERITY**: CRITICAL/HIGH/MEDIUM/LOW
+- **CATEGORY**: Security/Performance/Bug/Anti-pattern/Maintainability/Architecture
+- **LOCATION**: File and line number if possible
+- **ISSUE**: Clear description of the problem
+- **IMPACT**: What could go wrong
+- **FIX**: Specific recommendation to resolve
+
+BE BRUTALLY HONEST - Don't sugarcoat anything. If the code is bad, say it's bad. If there are security holes, call them out aggressively. If performance will suffer, be direct about it.
+
+DIFF TO REVIEW:
+{diff}
+
+Now conduct your aggressive review:"""
+    
+    return prompt

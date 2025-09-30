@@ -1,0 +1,272 @@
+{
+  "index_version": "1.0",
+  "indexed_at": "2025-09-30T13:01:35.130083Z",
+  "root": "/Users/hanihussein/Dev/projects/backend/ai/AI_Dev_Mate",
+  "summary": {
+    "file_count": 34,
+    "languages": {
+      "Unknown": 2,
+      "TOML": 1,
+      "Markdown": 1,
+      "Python": 30
+    },
+    "framework_hints": []
+  },
+  "files": [
+    {
+      "path": "requirements.txt",
+      "language": "Unknown",
+      "size": 412,
+      "sha1": "e58b3d61b62973b095a40eaa0e43c3d2f4f7a6fa"
+    },
+    {
+      "path": "pyproject.toml",
+      "language": "TOML",
+      "size": 684,
+      "sha1": "e39f701161a3c1d1d351b0418e0a6c9445ded396"
+    },
+    {
+      "path": "README.md",
+      "language": "Markdown",
+      "size": 6204,
+      "sha1": "f7d54a6231f8993035d6bbaaabc709085b8cf711"
+    },
+    {
+      "path": ".gitignore",
+      "language": "Unknown",
+      "size": 293,
+      "sha1": "8d5a2f99e8a73d696c34bb5004d02766d87544bd"
+    },
+    {
+      "path": "tests/__init__.py",
+      "language": "Python",
+      "size": 0,
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    },
+    {
+      "path": "tests/test_ollama_service.py",
+      "language": "Python",
+      "size": 0,
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    },
+    {
+      "path": "tests/test_code_review.py",
+      "language": "Python",
+      "size": 0,
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    },
+    {
+      "path": "tests/test_commit_generator.py",
+      "language": "Python",
+      "size": 0,
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    },
+    {
+      "path": "scripts/run_review.py",
+      "language": "Python",
+      "size": 0,
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    },
+    {
+      "path": "scripts/run_commit.py",
+      "language": "Python",
+      "size": 0,
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    },
+    {
+      "path": "src/main.py",
+      "language": "Python",
+      "size": 10227,
+      "sha1": "8abf17a5cf30fe7b0deb50a7277d0d0887c08c8f"
+    },
+    {
+      "path": "src/core/models.py",
+      "language": "Python",
+      "size": 422,
+      "sha1": "d595551a0ad341a99bef1c059f04c4d71a7568ed"
+    },
+    {
+      "path": "src/core/__init__.py",
+      "language": "Python",
+      "size": 0,
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    },
+    {
+      "path": "src/core/utils.py",
+      "language": "Python",
+      "size": 4338,
+      "sha1": "b9bdb46e5b7b2bb696939bd85b3ab17ee1661510"
+    },
+    {
+      "path": "src/core/exceptions.py",
+      "language": "Python",
+      "size": 636,
+      "sha1": "5dd18f4584b6aee818c38f7b9ee49047344a77ae"
+    },
+    {
+      "path": "src/config/__init__.py",
+      "language": "Python",
+      "size": 0,
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    },
+    {
+      "path": "src/config/settings.py",
+      "language": "Python",
+      "size": 622,
+      "sha1": "d4cec910f4ac509bbc00c3d99665726c46946684"
+    },
+    {
+      "path": "src/utils/themes.py",
+      "language": "Python",
+      "size": 4059,
+      "sha1": "323e3a8bb723a2684ba7cf567d56fc8fd1def996"
+    },
+    {
+      "path": "src/utils/console.py",
+      "language": "Python",
+      "size": 13347,
+      "sha1": "363c700b4c37af15b92abfc6bc0150c075c51639"
+    },
+    {
+      "path": "src/utils/reporter.py",
+      "language": "Python",
+      "size": 504,
+      "sha1": "573468bda2a7275eb00dba9c877de4137b882e5d"
+    },
+    {
+      "path": "src/utils/__init__.py",
+      "language": "Python",
+      "size": 0,
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    },
+    {
+      "path": "src/utils/logger.py",
+      "language": "Python",
+      "size": 275,
+      "sha1": "3d8e29fac010949329ac18b800594b0ced557d61"
+    },
+    {
+      "path": "src/utils/decorators.py",
+      "language": "Python",
+      "size": 436,
+      "sha1": "47f40381159ca789bacb08918e0aef6bce3c98a7"
+    },
+    {
+      "path": "src/modules/test_generator.py",
+      "language": "Python",
+      "size": 3280,
+      "sha1": "d94aab7550eb88906cfe5400c3a6e5df117ecf70"
+    },
+    {
+      "path": "src/modules/code_review.py",
+      "language": "Python",
+      "size": 5019,
+      "sha1": "3541a22d5abeb7d7e7c810240c81b2eb2040f546"
+    },
+    {
+      "path": "src/modules/repo_indexer_task.py",
+      "language": "Python",
+      "size": 2237,
+      "sha1": "0d080ba437960909dd328ce8558d3e2f0d91572b"
+    },
+    {
+      "path": "src/modules/__init__.py",
+      "language": "Python",
+      "size": 0,
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    },
+    {
+      "path": "src/modules/commit_generator.py",
+      "language": "Python",
+      "size": 2876,
+      "sha1": "d3878c41d4d799809c76d0c3b8d586a70f3dfaa2"
+    },
+    {
+      "path": "src/modules/doc_generator.py",
+      "language": "Python",
+      "size": 3396,
+      "sha1": "6f72cf8aec43376067254845aa11fdf76b60adc5"
+    },
+    {
+      "path": "src/services/file_service.py",
+      "language": "Python",
+      "size": 2170,
+      "sha1": "64a272ce7ae7e163c65a4f561dab8db4ccee3a91"
+    },
+    {
+      "path": "src/services/repo_indexer.py",
+      "language": "Python",
+      "size": 23577,
+      "sha1": "d981d192a574bc8100676ff238e5958faf1a205c"
+    },
+    {
+      "path": "src/services/__init__.py",
+      "language": "Python",
+      "size": 0,
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    },
+    {
+      "path": "src/services/git_service.py",
+      "language": "Python",
+      "size": 5022,
+      "sha1": "00b9b5eae78027086c8d0960688bd544371a38be"
+    },
+    {
+      "path": "src/services/ollama_service.py",
+      "language": "Python",
+      "size": 1547,
+      "sha1": "c13cfa0d51089f0fbf26ac4a053a8db48878d501"
+    }
+  ],
+  "dependencies": {
+    "requirements": [
+      "black==24.3.0",
+      "certifi==2025.8.3",
+      "charset-normalizer==3.4.3",
+      "click==8.1.3",
+      "dotenv==0.9.9",
+      "flake8==6.1.0",
+      "idna==3.10",
+      "iniconfig==2.1.0",
+      "markdown-it-py==4.0.0",
+      "mccabe==0.7.0",
+      "mdurl==0.1.2",
+      "mypy_extensions==1.1.0",
+      "packaging==25.0",
+      "pathspec==0.12.1",
+      "platformdirs==4.4.0",
+      "pluggy==1.6.0",
+      "pycodestyle==2.11.1",
+      "pyflakes==3.1.0",
+      "Pygments==2.19.2",
+      "pytest==7.4.0",
+      "python-dotenv==1.0.0",
+      "requests==2.32.5",
+      "rich==13.4.2",
+      "urllib3==2.5.0",
+      "tqdm==4.67.1"
+    ],
+    "pyproject": {
+      "python": "^3.11",
+      "click": "\"^8.1.3\"           # Optional CLI enhancement",
+      "python-dotenv": "\"^1.0.0\"   # For reading .env",
+      "rich": "\"^13.4.2\"            # Nice CLI formatting"
+    },
+    "package_json": {
+      "dependencies": {},
+      "devDependencies": {}
+    },
+    "pubspec": {}
+  },
+  "git": {
+    "recent_commits": [
+      "c037abded9a3a9feff4495ff53e2396a97cbe3a8 feat: Add index data verification to all task modules",
+      "5eb7fe64fa5c46443f235fb4334d76b374703a82 enhance terminal prints",
+      "d03ce17d5a00442b49cc52e86c63fc250e2b5958 Add repository indexing checks and update default model version",
+      "c360aaa2007b63c375ba9257ce57977462f8d167 start repo_indexer",
+      "1131e5fc93e9e031f6b324b444131c63a06470b1 first init"
+    ],
+    "current_branch": "main",
+    "remote_url": "https://github.com/HaniMohamed/AI_Dev_Mate"
+  }
+}
