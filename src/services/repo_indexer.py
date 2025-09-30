@@ -3,12 +3,15 @@ import os
 import json
 import hashlib
 from datetime import datetime
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Optional
 from fnmatch import fnmatch
+from tqdm import tqdm
 
 from src.services.file_service import FileService
 from src.services.git_service import GitService
 from src.services.ollama_service import OllamaService
+from src.core.exceptions import IndexError, FileServiceError, GitServiceError
+from src.utils.console import aidm_console
 
 
 IGNORED_DIRS = {
@@ -255,41 +258,108 @@ class RepoIndexer:
                 return {"has_flutter": has_flutter}
         return {}
 
-    def _collect_files(self, repo_path: str) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
+    def _collect_files(self, repo_path: str, show_progress: bool = True) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
         files: List[Dict[str, Any]] = []
         lang_counts: Dict[str, int] = {}
+        
+        # First pass: count total files for progress bar
+        total_files = 0
         for root, dirs, filenames in os.walk(repo_path):
-            # Compute relative directory from repo root
             rel_dir = os.path.relpath(root, repo_path)
             if rel_dir == ".":
                 rel_dir = ""
-            # mutate dirs in-place to prune ignored directories using .gitignore
+            # Check directories against ignore patterns
             pruned = []
             for d in dirs:
                 d_rel = os.path.join(rel_dir, d) if rel_dir else d
                 if not self._is_ignored(d_rel, is_dir=True):
                     pruned.append(d)
             dirs[:] = pruned
+            
             for fname in filenames:
                 if fname == "index.json" and os.path.basename(root) == ".aidm_index":
                     continue
                 full = os.path.join(root, fname)
                 rel = os.path.relpath(full, repo_path)
-                # Skip ignored files
-                if self._is_ignored(rel, is_dir=False):
-                    continue
-                language = self._detect_language(fname)
-                try:
-                    size = os.path.getsize(full)
-                except Exception:
-                    size = 0
-                files.append({
-                    "path": rel,
-                    "language": language,
-                    "size": size,
-                    "sha1": self._file_hash(full),
-                })
-                lang_counts[language] = lang_counts.get(language, 0) + 1
+                if not self._is_ignored(rel, is_dir=False):
+                    total_files += 1
+        
+        # Second pass: process files with progress bar
+        if show_progress:
+            with aidm_console.create_progress("Indexing files") as progress:
+                task = progress.add_task("Processing files...", total=total_files)
+                
+                for root, dirs, filenames in os.walk(repo_path):
+                    rel_dir = os.path.relpath(root, repo_path)
+                    if rel_dir == ".":
+                        rel_dir = ""
+                    # mutate dirs in-place to prune ignored directories using .gitignore
+                    pruned = []
+                    for d in dirs:
+                        d_rel = os.path.join(rel_dir, d) if rel_dir else d
+                        if not self._is_ignored(d_rel, is_dir=True):
+                            pruned.append(d)
+                    dirs[:] = pruned
+                    
+                    for fname in filenames:
+                        if fname == "index.json" and os.path.basename(root) == ".aidm_index":
+                            continue
+                        full = os.path.join(root, fname)
+                        rel = os.path.relpath(full, repo_path)
+                        # Skip ignored files
+                        if self._is_ignored(rel, is_dir=False):
+                            continue
+                        
+                        language = self._detect_language(fname)
+                        try:
+                            size = os.path.getsize(full)
+                        except Exception:
+                            size = 0
+                        
+                        files.append({
+                            "path": rel,
+                            "language": language,
+                            "size": size,
+                            "sha1": self._file_hash(full),
+                        })
+                        lang_counts[language] = lang_counts.get(language, 0) + 1
+                        progress.update(task, advance=1)
+        else:
+            # Process without progress bar
+            for root, dirs, filenames in os.walk(repo_path):
+                rel_dir = os.path.relpath(root, repo_path)
+                if rel_dir == ".":
+                    rel_dir = ""
+                # mutate dirs in-place to prune ignored directories using .gitignore
+                pruned = []
+                for d in dirs:
+                    d_rel = os.path.join(rel_dir, d) if rel_dir else d
+                    if not self._is_ignored(d_rel, is_dir=True):
+                        pruned.append(d)
+                dirs[:] = pruned
+                
+                for fname in filenames:
+                    if fname == "index.json" and os.path.basename(root) == ".aidm_index":
+                        continue
+                    full = os.path.join(root, fname)
+                    rel = os.path.relpath(full, repo_path)
+                    # Skip ignored files
+                    if self._is_ignored(rel, is_dir=False):
+                        continue
+                    
+                    language = self._detect_language(fname)
+                    try:
+                        size = os.path.getsize(full)
+                    except Exception:
+                        size = 0
+                    
+                    files.append({
+                        "path": rel,
+                        "language": language,
+                        "size": size,
+                        "sha1": self._file_hash(full),
+                    })
+                    lang_counts[language] = lang_counts.get(language, 0) + 1
         return files, lang_counts
 
     def _framework_hints(self, repo_path: str) -> List[str]:
@@ -322,7 +392,7 @@ class RepoIndexer:
                 hints.append("Flutter")
         return sorted(list(set(hints)))
 
-    def index(self, repo_path: str, generate_context: bool = False) -> Dict[str, Any]:
+    def index(self, repo_path: str, generate_context: bool = False, show_progress: bool = True) -> Dict[str, Any]:
         repo_path = os.path.abspath(repo_path)
         if not os.path.isdir(repo_path):
             raise ValueError(f"Path is not a directory: {repo_path}")
@@ -330,26 +400,33 @@ class RepoIndexer:
         # Load .gitignore rules for this repository
         self._load_gitignore(repo_path)
 
-        files, lang_counts = self._collect_files(repo_path)
+        files, lang_counts = self._collect_files(repo_path, show_progress)
         requirements = self._parse_requirements(repo_path)
         pyproject = self._parse_pyproject(repo_path)
         package_json = self._parse_package_json(repo_path)
         pubspec = self._parse_pubspec(repo_path)
         recent_commits = []
         try:
-            recent_commits = self.git_service.get_recent_commits(5)
-        except Exception:
+            recent_commits = self.git_service.get_recent_commits(5, repo_path)
+        except GitServiceError:
             # In case the path is not a git repo or git is unavailable
             recent_commits = []
 
         # Optionally enrich with LLM-generated context per file (can be slow)
         if generate_context and self.ollama:
-            for f in files:
-                ctx = self._generate_file_context(repo_path, f["path"], f.get("language", "Unknown"))
-                if ctx:
-                    f["llm_context"] = ctx
+            context_files = [f for f in files if f.get("language") not in ["Unknown", "Binary"]]
+            if context_files:
+                aidm_console.print_info(f"Generating AI context for {len(context_files)} files...")
+                with aidm_console.create_progress("Generating AI context") as progress:
+                    task = progress.add_task("Processing files...", total=len(context_files))
+                    for f in context_files:
+                        ctx = self._generate_file_context(repo_path, f["path"], f.get("language", "Unknown"))
+                        if ctx:
+                            f["llm_context"] = ctx
+                        progress.update(task, advance=1)
 
         index: Dict[str, Any] = {
+            "index_version": "1.0",
             "indexed_at": datetime.utcnow().isoformat() + "Z",
             "root": repo_path,
             "summary": {
@@ -369,6 +446,8 @@ class RepoIndexer:
             },
             "git": {
                 "recent_commits": recent_commits,
+                "current_branch": self.git_service.get_current_branch(repo_path) if self.git_service.is_git_repo(repo_path) else "",
+                "remote_url": self.git_service.get_remote_url(repo_path) if self.git_service.is_git_repo(repo_path) else "",
             },
         }
 
@@ -382,10 +461,16 @@ class RepoIndexer:
         return index
 
     def summarize(self, index: Dict[str, Any]) -> str:
+        """Generate a beautiful summary of the index."""
         s = index.get("summary", {})
         langs = s.get("languages", {})
         top_langs = sorted(langs.items(), key=lambda x: x[1], reverse=True)[:5]
         hints = s.get("framework_hints", [])
+        
+        # Use Rich console for beautiful output
+        aidm_console.print_index_summary(index)
+        
+        # Return simple text version for compatibility
         lines = [
             f"Indexed root: {index.get('root')}",
             f"Files: {s.get('file_count', 0)}",
@@ -415,3 +500,67 @@ class RepoIndexer:
                 return json.load(f)
         except Exception:
             return {}
+    
+    def is_index_valid(self, repo_path: str) -> bool:
+        """Check if the existing index is still valid (not stale)."""
+        index = self.load_index(repo_path)
+        if not index:
+            return False
+        
+        # Check if index format version is compatible
+        index_version = index.get("index_version", "1.0")
+        if index_version != "1.0":
+            return False
+        
+        # Check if any files have been modified since indexing
+        indexed_at_str = index.get("indexed_at", "")
+        if not indexed_at_str:
+            return False
+        
+        try:
+            indexed_at = datetime.fromisoformat(indexed_at_str.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        
+        # Check if any tracked files have been modified since indexing
+        files = index.get("files", [])
+        for file_info in files:
+            file_path = os.path.join(repo_path, file_info["path"])
+            if os.path.exists(file_path):
+                try:
+                    file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
+                    # Make file_mtime timezone-aware for comparison
+                    if file_mtime.tzinfo is None:
+                        file_mtime = file_mtime.replace(tzinfo=indexed_at.tzinfo)
+                    if file_mtime > indexed_at:
+                        return False
+                except OSError:
+                    continue
+            else:
+                # File no longer exists
+                return False
+        
+        return True
+    
+    def needs_refresh(self, repo_path: str) -> bool:
+        """Check if the index needs to be refreshed."""
+        return not self.is_index_valid(repo_path)
+    
+    def get_index_age(self, repo_path: str) -> Optional[datetime]:
+        """Get the age of the current index."""
+        index = self.load_index(repo_path)
+        if not index:
+            return None
+        
+        indexed_at_str = index.get("indexed_at", "")
+        if not indexed_at_str:
+            return None
+        
+        try:
+            return datetime.fromisoformat(indexed_at_str.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    
+    def force_refresh_index(self, repo_path: str, generate_context: bool = False, show_progress: bool = True) -> Dict[str, Any]:
+        """Force refresh the index regardless of validity."""
+        return self.index(repo_path, generate_context, show_progress)
