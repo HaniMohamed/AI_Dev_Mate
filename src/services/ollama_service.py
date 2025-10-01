@@ -22,7 +22,7 @@ class OllamaService:
                 "temperature": temperature if temperature is not None else Settings.TEMPERATURE,
                 # Performance optimizations for faster generation
                 "num_predict": max_tokens if max_tokens is not None else Settings.MAX_TOKENS,
-                "num_ctx": 4096,  # Context window size
+                "num_ctx": 8192,  # Context window size (increased for larger diffs)
                 "num_thread": 4,  # Use 4 threads for faster processing
                 "num_gpu": 1,  # Use GPU if available
                 "repeat_penalty": 1.1,  # Slight penalty for repetition

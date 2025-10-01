@@ -74,18 +74,26 @@ class CodeReviewTask(BaseTask):
             else:
                 aidm_console.print_info("Conducting aggressive code review...")
                 
-                # Show the diff with syntax highlighting
-                aidm_console.print_primary("Code Changes:")
-                aidm_console.print_code_syntax(diff, "diff")
+                # Check diff size and chunk if necessary
+                diff_size = len(diff)
+                aidm_console.print_info(f"Diff size: {diff_size:,} characters")
                 
-                # Generate aggressive review using indexed context
-                with aidm_console.create_progress("Generating aggressive review") as progress:
-                    task = progress.add_task("Analyzing code for issues...", total=100)
+                if diff_size > 100000:  # If diff is larger than 100KB, chunk it
+                    aidm_console.print_warning(f"Large diff detected ({diff_size:,} chars). Chunking for better analysis...")
+                    self.review = self._chunked_review(diff, index_data)
+                else:
+                    # Show the diff with syntax highlighting for smaller diffs
+                    aidm_console.print_primary("Code Changes:")
+                    aidm_console.print_code_syntax(diff, "diff")
                     
-                    # Create aggressive review prompt
-                    review_prompt = create_aggressive_review_prompt(diff, index_data)
-                    self.review = self.ollama.run_prompt(review_prompt)
-                    progress.update(task, completed=100)
+                    # Generate aggressive review using indexed context
+                    with aidm_console.create_progress("Generating aggressive review") as progress:
+                        task = progress.add_task("Analyzing code for issues...", total=100)
+                        
+                        # Create aggressive review prompt
+                        review_prompt = create_aggressive_review_prompt(diff, index_data)
+                        self.review = self.ollama.run_prompt(review_prompt)
+                        progress.update(task, completed=100)
                 
                 aidm_console.print_success("Aggressive code review completed!")
                 
@@ -94,6 +102,67 @@ class CodeReviewTask(BaseTask):
             self.review = f"Code review failed: {e}"
         
         self.completed = True
+
+    def _chunked_review(self, diff: str, index_data: dict) -> str:
+        """Review large diffs by chunking them into manageable pieces."""
+        from src.core.utils import chunk_text
+        
+        # Split diff into chunks by file boundaries
+        chunks = self._split_diff_by_files(diff)
+        total_chunks = len(chunks)
+        
+        aidm_console.print_info(f"Split diff into {total_chunks} file chunks for analysis")
+        
+        reviews = []
+        
+        with aidm_console.create_progress("Generating chunked review") as progress:
+            task = progress.add_task("Analyzing chunks...", total=total_chunks)
+            
+            for i, chunk in enumerate(chunks):
+                if len(chunk.strip()) == 0:
+                    continue
+                    
+                aidm_console.print_info(f"Reviewing chunk {i+1}/{total_chunks} ({len(chunk):,} chars)")
+                
+                # Create review prompt for this chunk
+                review_prompt = create_aggressive_review_prompt(chunk, index_data)
+                chunk_review = self.ollama.run_prompt(review_prompt)
+                
+                if chunk_review and not chunk_review.startswith("[ollama"):
+                    reviews.append(f"## Chunk {i+1} Review\n{chunk_review}")
+                
+                progress.update(task, completed=i+1)
+        
+        # Combine all reviews
+        if reviews:
+            combined_review = f"# Comprehensive Code Review ({total_chunks} chunks analyzed)\n\n"
+            combined_review += "\n\n".join(reviews)
+            combined_review += f"\n\n## Summary\nAnalyzed {total_chunks} file chunks. Review each section above for specific issues."
+            return combined_review
+        else:
+            return "Failed to generate reviews for any chunks."
+
+    def _split_diff_by_files(self, diff: str) -> list:
+        """Split diff into chunks by file boundaries."""
+        lines = diff.split('\n')
+        chunks = []
+        current_chunk = []
+        
+        for line in lines:
+            # Check if this is a new file diff header
+            if line.startswith('diff --git'):
+                # Save previous chunk if it exists
+                if current_chunk:
+                    chunks.append('\n'.join(current_chunk))
+                    current_chunk = []
+            
+            current_chunk.append(line)
+        
+        # Add the last chunk
+        if current_chunk:
+            chunks.append('\n'.join(current_chunk))
+        
+        return chunks
 
     def summarize(self) -> str:
         """Return review summary with beautiful formatting."""
