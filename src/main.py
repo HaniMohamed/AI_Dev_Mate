@@ -69,7 +69,7 @@ def list_tasks():
     aidm_console.print_table(table)
     aidm_console.print_info("Use --run <task_name> to execute a task")
 
-def run_task(task_name: str, force_refresh: bool = False, base_branch: str = None, target_branch: str = None, repo_path: str = None, max_files: int = None, fast_mode: bool = False):
+def run_task(task_name: str, force_refresh: bool = False, base_branch: str = None, target_branch: str = None, repo_path: str = None, max_files: int = None, fast_mode: bool = False, model: str = None, ollama_host: str = None, temperature: float = None, max_tokens: int = None):
     """Run a specific task with beautiful output."""
     if task_name not in AVAILABLE_TASKS:
         aidm_console.print_error(f"Task '{task_name}' not found!")
@@ -87,10 +87,31 @@ def run_task(task_name: str, force_refresh: bool = False, base_branch: str = Non
     task_title = task_descriptions.get(task_name, f"Task: {task_name}")
     aidm_console.print_header(task_title, "Executing AI-powered development task")
     
+    # Create OllamaService with custom parameters if provided
+    custom_ollama = None
+    if model or ollama_host or temperature is not None or max_tokens is not None:
+        custom_ollama = OllamaService(
+            model_name=model,
+            host=ollama_host,
+            timeout=ollama_service.timeout
+        )
+        # Update settings if provided
+        if temperature is not None:
+            custom_ollama.temperature = temperature
+        if max_tokens is not None:
+            custom_ollama.max_tokens = max_tokens
+        
+        aidm_console.print_info(f"🤖 Using custom model: {custom_ollama.model_name}")
+        if ollama_host:
+            aidm_console.print_info(f"🌐 Ollama host: {custom_ollama.host}")
+    
+    # Use custom OllamaService if provided, otherwise use default
+    active_ollama = custom_ollama or ollama_service
+    
     # Require repository index for all tasks except the indexer itself
     if task_name != "repo_indexer":
         repo_root = os.getcwd()
-        idx = RepoIndexer(ollama=ollama_service)
+        idx = RepoIndexer(ollama=active_ollama)
         
         if not idx.index_exists(repo_root):
             aidm_console.print_error(
@@ -121,11 +142,20 @@ def run_task(task_name: str, force_refresh: bool = False, base_branch: str = Non
     try:
         # Create task with repo_path if provided
         if task_name == "code_review":
-            task = CodeReviewTask(ollama_service, repo_path)
+            task = CodeReviewTask(active_ollama, repo_path)
         elif task_name == "repo_indexer":
             task = RepoIndexTask(repo_path, force_refresh)
         else:
-            task = AVAILABLE_TASKS[task_name]()
+            # For other tasks, create with custom OllamaService
+            if task_name in ["commit_generator", "test_generator", "doc_generator"]:
+                if task_name == "commit_generator":
+                    task = CommitGeneratorTask(active_ollama)
+                elif task_name == "test_generator":
+                    task = TestGeneratorTask(active_ollama)
+                elif task_name == "doc_generator":
+                    task = DocGeneratorTask(active_ollama)
+            else:
+                task = AVAILABLE_TASKS[task_name]()
         
         # Pass additional arguments to code review task
         if task_name == "code_review" and hasattr(task, 'set_review_params'):
@@ -154,6 +184,9 @@ Examples:
   python -m src.main --run code_review --repo-path .  # Run code review on current directory
   python -m src.main --run code_review --repo-path /path/to/repo --base-branch main --target-branch feature-branch
   python -m src.main --run code_review --repo-path . --base-branch develop  # Compare current changes with develop branch
+  python -m src.main --run code_review --model codellama:13b  # Use specific model
+  python -m src.main --run code_review --model llama3.1:8b --temperature 0.2  # Custom model and temperature
+  python -m src.main --run code_review --ollama-host http://remote:11434  # Use remote Ollama server
   python -m src.main --run repo_indexer --repo-path /path/to/repo  # Index specific repository
   python -m src.main --check-index /path/to/repo  # Check index status
         """
@@ -173,6 +206,12 @@ Examples:
     parser.add_argument("--target-branch", type=str, metavar="BRANCH", help="Target branch to compare (default: current changes)")
     parser.add_argument("--max-files", type=int, metavar="N", help="Maximum number of files to review (default: 50)")
     parser.add_argument("--fast-mode", action="store_true", help="Enable fast mode with parallel processing and shorter responses")
+    
+    # Model configuration arguments
+    parser.add_argument("--model", type=str, metavar="MODEL", help="Ollama model to use (e.g., codellama:13b, llama3.1:8b)")
+    parser.add_argument("--ollama-host", type=str, metavar="HOST", help="Ollama server host (default: http://localhost:11434)")
+    parser.add_argument("--temperature", type=float, metavar="TEMP", help="Model temperature (0.0-1.0, default: 0.3)")
+    parser.add_argument("--max-tokens", type=int, metavar="TOKENS", help="Maximum response tokens (default: 4000)")
 
     args = parser.parse_args()
 
@@ -181,7 +220,9 @@ Examples:
     elif args.run:
         run_task(args.run, force_refresh=args.force_refresh, 
                 base_branch=args.base_branch, target_branch=args.target_branch,
-                repo_path=args.repo_path, max_files=args.max_files, fast_mode=args.fast_mode)
+                repo_path=args.repo_path, max_files=args.max_files, fast_mode=args.fast_mode,
+                model=args.model, ollama_host=args.ollama_host, 
+                temperature=args.temperature, max_tokens=args.max_tokens)
     elif args.index:
         aidm_console.print_header("📁 Repository Indexing", f"Indexing: {args.index}")
         

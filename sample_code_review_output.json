@@ -1,0 +1,235 @@
+{
+  "metadata": {
+    "timestamp": "2024-01-15T10:30:45.123456",
+    "repo_path": "/path/to/target/repo",
+    "base_branch": "HEAD~1",
+    "target_branch": null,
+    "review_type": "fast_chunked"
+  },
+  "summary": {
+    "total_chunks": 2,
+    "total_issues": 6,
+    "critical_issues": 2,
+    "security_issues": 2,
+    "performance_issues": 2,
+    "bug_issues": 2,
+    "files_analyzed": [
+      "src/auth/login.py",
+      "src/database/queries.py",
+      "src/api/users.py"
+    ],
+    "analysis_note": "Analyzed 2 chunks in parallel. Focus on critical issues above."
+  },
+  "chunks": [
+    {
+      "chunk_number": 1,
+      "content": "1. SECURITY: SQL injection, XSS, auth bypass, data leaks | FIX: Use prepared statements and parameterized queries to prevent SQL injection attacks.\n2. CRITICAL BUGS: Null pointers, crashes, logic errors | FIX: Use error handling and debugging techniques to identify and fix null pointer exceptions, crashes, and logic errors.\n3. PERFORMANCE: Memory leaks, infinite loops, N+1 queries | FIX: Use performance profiling tools to identify memory leaks and optimize code for better performance.",
+      "file_context": "src/auth/login.py, src/database/queries.py",
+      "issues": [
+        {
+          "category": "security",
+          "description": "SQL injection, XSS, auth bypass, data leaks",
+          "fix": "Use prepared statements and parameterized queries to prevent SQL injection attacks.",
+          "severity": "high",
+          "file_context": "src/auth/login.py, src/database/queries.py",
+          "recommendations": [
+            "Use parameterized queries or prepared statements",
+            "Validate and sanitize all user inputs",
+            "Implement proper input validation with whitelist approach",
+            "Consider using an ORM that handles SQL injection prevention"
+          ]
+        },
+        {
+          "category": "critical_bugs",
+          "description": "Null pointers, crashes, logic errors",
+          "fix": "Use error handling and debugging techniques to identify and fix null pointer exceptions, crashes, and logic errors.",
+          "severity": "critical",
+          "file_context": "src/auth/login.py, src/database/queries.py",
+          "recommendations": [
+            "Add null checks before accessing object properties",
+            "Use defensive programming techniques",
+            "Implement proper error handling",
+            "Consider using optional types or null-safe operators"
+          ]
+        },
+        {
+          "category": "performance",
+          "description": "Memory leaks, infinite loops, N+1 queries",
+          "fix": "Use performance profiling tools to identify memory leaks and optimize code for better performance.",
+          "severity": "medium",
+          "file_context": "src/auth/login.py, src/database/queries.py",
+          "recommendations": [
+            "Use eager loading or batch loading",
+            "Implement proper database query optimization",
+            "Consider using JOIN queries instead of multiple queries",
+            "Use caching mechanisms for frequently accessed data"
+          ]
+        }
+      ]
+    },
+    {
+      "chunk_number": 2,
+      "content": "1. **SECURITY**: SQL injection, XSS, auth bypass, data leaks\n        * ISSUE: The code contains vulnerabilities that can be exploited for malicious purposes, such as SQL injection, cross-site scripting (XSS), and authentication bypass.\n        * FIX: Implement proper sanitization and validation measures for user input, use prepared statements, and ensure that sensitive data is properly encrypted.\n2. **CRITICAL BUGS**: Null pointers, crashes, logic errors\n        * ISSUE: The code contains critical bugs that can cause the application to crash or produce incorrect results.\n        * FIX: Ensure that all variables are properly initialized, use defensive programming techniques, and test the code thoroughly to catch any logic errors.\n3. **PERFORMANCE**: Memory leaks, infinite loops, N+1 queries\n        * ISSUE: The code contains performance issues that can cause the application to slow down or consume excessive resources.\n        * FIX: Optimize database queries, use caching mechanisms, and ensure that the code is efficient in terms of memory usage and execution time.",
+      "issues": [
+        {
+          "category": "security",
+          "description": "SQL injection, XSS, auth bypass, data leaks",
+          "fix": "Implement proper sanitization and validation measures for user input, use prepared statements, and ensure that sensitive data is properly encrypted.",
+          "severity": "high"
+        },
+        {
+          "category": "critical_bugs",
+          "description": "Null pointers, crashes, logic errors",
+          "fix": "Ensure that all variables are properly initialized, use defensive programming techniques, and test the code thoroughly to catch any logic errors.",
+          "severity": "critical"
+        },
+        {
+          "category": "performance",
+          "description": "Memory leaks, infinite loops, N+1 queries",
+          "fix": "Optimize database queries, use caching mechanisms, and ensure that the code is efficient in terms of memory usage and execution time.",
+          "severity": "medium"
+        }
+      ]
+    }
+  ],
+  "issues": {
+    "security": [
+      {
+        "category": "security",
+        "description": "SQL injection, XSS, auth bypass, data leaks",
+        "fix": "Use prepared statements and parameterized queries to prevent SQL injection attacks.",
+        "severity": "high"
+      },
+      {
+        "category": "security",
+        "description": "SQL injection, XSS, auth bypass, data leaks",
+        "fix": "Implement proper sanitization and validation measures for user input, use prepared statements, and ensure that sensitive data is properly encrypted.",
+        "severity": "high"
+      }
+    ],
+    "critical_bugs": [
+      {
+        "category": "critical_bugs",
+        "description": "Null pointers, crashes, logic errors",
+        "fix": "Use error handling and debugging techniques to identify and fix null pointer exceptions, crashes, and logic errors.",
+        "severity": "critical"
+      },
+      {
+        "category": "critical_bugs",
+        "description": "Null pointers, crashes, logic errors",
+        "fix": "Ensure that all variables are properly initialized, use defensive programming techniques, and test the code thoroughly to catch any logic errors.",
+        "severity": "critical"
+      }
+    ],
+    "performance": [
+      {
+        "category": "performance",
+        "description": "Memory leaks, infinite loops, N+1 queries",
+        "fix": "Use performance profiling tools to identify memory leaks and optimize code for better performance.",
+        "severity": "medium"
+      },
+      {
+        "category": "performance",
+        "description": "Memory leaks, infinite loops, N+1 queries",
+        "fix": "Optimize database queries, use caching mechanisms, and ensure that the code is efficient in terms of memory usage and execution time.",
+        "severity": "medium"
+      }
+    ]
+  },
+  "files": {
+    "src/auth/login.py": {
+      "path": "src/auth/login.py",
+      "issues": {
+        "security": [
+          {
+            "category": "security",
+            "description": "SQL injection, XSS, auth bypass, data leaks",
+            "fix": "Use prepared statements and parameterized queries to prevent SQL injection attacks.",
+            "severity": "high",
+            "file_context": "src/auth/login.py, src/database/queries.py",
+            "recommendations": [
+              "Use parameterized queries or prepared statements",
+              "Validate and sanitize all user inputs",
+              "Implement proper input validation with whitelist approach",
+              "Consider using an ORM that handles SQL injection prevention"
+            ]
+          }
+        ],
+        "critical_bugs": [],
+        "performance": []
+      },
+      "line_numbers": [],
+      "summary": {
+        "total_issues": 1,
+        "security_issues": 1,
+        "critical_bugs": 0,
+        "performance_issues": 0
+      }
+    },
+    "src/database/queries.py": {
+      "path": "src/database/queries.py",
+      "issues": {
+        "security": [],
+        "critical_bugs": [
+          {
+            "category": "critical_bugs",
+            "description": "Null pointers, crashes, logic errors",
+            "fix": "Use error handling and debugging techniques to identify and fix null pointer exceptions, crashes, and logic errors.",
+            "severity": "critical",
+            "file_context": "src/auth/login.py, src/database/queries.py",
+            "recommendations": [
+              "Add null checks before accessing object properties",
+              "Use defensive programming techniques",
+              "Implement proper error handling",
+              "Consider using optional types or null-safe operators"
+            ]
+          }
+        ],
+        "performance": [
+          {
+            "category": "performance",
+            "description": "Memory leaks, infinite loops, N+1 queries",
+            "fix": "Use performance profiling tools to identify memory leaks and optimize code for better performance.",
+            "severity": "medium",
+            "file_context": "src/auth/login.py, src/database/queries.py",
+            "recommendations": [
+              "Use eager loading or batch loading",
+              "Implement proper database query optimization",
+              "Consider using JOIN queries instead of multiple queries",
+              "Use caching mechanisms for frequently accessed data"
+            ]
+          }
+        ]
+      },
+      "line_numbers": [],
+      "summary": {
+        "total_issues": 2,
+        "security_issues": 0,
+        "critical_bugs": 1,
+        "performance_issues": 1
+      }
+    },
+    "src/api/users.py": {
+      "path": "src/api/users.py",
+      "issues": {
+        "security": [],
+        "critical_bugs": [],
+        "performance": []
+      },
+      "line_numbers": [],
+      "summary": {
+        "total_issues": 0,
+        "security_issues": 0,
+        "critical_bugs": 0,
+        "performance_issues": 0
+      }
+    }
+  },
+  "recommendations": [
+    "Prioritize fixing critical bugs first as they can cause application crashes",
+    "Implement comprehensive security measures to prevent SQL injection and XSS attacks",
+    "Optimize database queries to improve performance and prevent N+1 query problems",
+    "Add proper error handling and null checks throughout the codebase",
+    "Consider implementing automated testing to catch issues early"
+  ]
+}
