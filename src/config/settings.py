@@ -12,6 +12,6 @@ class Settings:
     OLLAMA_RETRY_DELAY = float(os.getenv("OLLAMA_RETRY_DELAY", 2))  # Initial retry delay
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
     REPORTS_DIR = os.getenv("REPORTS_DIR", "reports")
-    MAX_TOKENS = int(os.getenv("MAX_TOKENS", 1000))
+    MAX_TOKENS = int(os.getenv("MAX_TOKENS", 4000))  # Increased for longer responses
     TEMPERATURE = float(os.getenv("TEMPERATURE", 0.3))
     DEFAULT_BRANCH = os.getenv("GIT_DEFAULT_BRANCH", "main")

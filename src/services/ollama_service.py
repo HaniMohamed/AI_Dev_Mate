@@ -36,7 +36,7 @@ class OllamaService:
                 "use_mlock": True,  # Lock memory to prevent swapping
                 "n_gpu_layers": -1,  # Use all GPU layers
                 "main_gpu": 0,  # Use first GPU
-                "stop": ["</s>", "\n\n"],  # Stop tokens
+                "stop": ["</s>"],  # Only stop on end-of-sequence token
             },
         }
 
@@ -52,7 +52,13 @@ class OllamaService:
                 resp.raise_for_status()
                 data = resp.json()
                 # The non-streaming API returns a single JSON with 'response'
-                return data.get("response", "")
+                response_text = data.get("response", "")
+                
+                # Debug: Log response length for troubleshooting
+                if len(response_text) > 0:
+                    print(f"Ollama response length: {len(response_text)} characters")
+                
+                return response_text
             except requests.Timeout:
                 if attempt < max_retries - 1:
                     print(f"Ollama timeout (attempt {attempt + 1}/{max_retries}), retrying in {retry_delay}s...")
