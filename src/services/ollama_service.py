@@ -20,23 +20,25 @@ class OllamaService:
             "stream": False,
             "options": {
                 "temperature": temperature if temperature is not None else Settings.TEMPERATURE,
-                # Performance optimizations for faster generation
-                "num_predict": max_tokens if max_tokens is not None else Settings.MAX_TOKENS,
-                "num_ctx": 8192,  # Context window size (increased for larger diffs)
-                "num_thread": 4,  # Use 4 threads for faster processing
+                # Optimized for SPEED - reduced quality for faster responses
+                "num_predict": min(max_tokens if max_tokens is not None else Settings.MAX_TOKENS, 2000),  # Limit response length
+                "num_ctx": 4096,  # Smaller context window for speed
+                "num_thread": 8,  # More threads for faster processing
                 "num_gpu": 1,  # Use GPU if available
-                "repeat_penalty": 1.1,  # Slight penalty for repetition
-                "top_k": 40,  # Limit vocabulary for faster generation
-                "top_p": 0.9,  # Nucleus sampling for better quality
-                "repeat_last_n": 64,  # Look back 64 tokens for repetition
-                "num_batch": 512,  # Batch size for processing
+                "repeat_penalty": 1.05,  # Reduced penalty for speed
+                "top_k": 20,  # Smaller vocabulary for faster generation
+                "top_p": 0.8,  # Reduced sampling for speed
+                "repeat_last_n": 32,  # Reduced lookback for speed
+                "num_batch": 1024,  # Larger batch size for speed
                 "low_vram": False,  # Use full VRAM if available
                 "f16_kv": True,  # Use 16-bit precision for key-value cache
                 "use_mmap": True,  # Use memory mapping for faster loading
                 "use_mlock": True,  # Lock memory to prevent swapping
                 "n_gpu_layers": -1,  # Use all GPU layers
                 "main_gpu": 0,  # Use first GPU
-                "stop": ["</s>"],  # Only stop on end-of-sequence token
+                "stop": ["</s>", "\n\n\n"],  # Stop on multiple patterns for shorter responses
+                "tfs_z": 1.0,  # Tail free sampling for faster generation
+                "typical_p": 1.0,  # Typical sampling for speed
             },
         }
 

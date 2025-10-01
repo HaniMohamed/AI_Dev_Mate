@@ -69,7 +69,7 @@ def list_tasks():
     aidm_console.print_table(table)
     aidm_console.print_info("Use --run <task_name> to execute a task")
 
-def run_task(task_name: str, force_refresh: bool = False, base_branch: str = None, target_branch: str = None, repo_path: str = None):
+def run_task(task_name: str, force_refresh: bool = False, base_branch: str = None, target_branch: str = None, repo_path: str = None, max_files: int = None, fast_mode: bool = False):
     """Run a specific task with beautiful output."""
     if task_name not in AVAILABLE_TASKS:
         aidm_console.print_error(f"Task '{task_name}' not found!")
@@ -129,7 +129,7 @@ def run_task(task_name: str, force_refresh: bool = False, base_branch: str = Non
         
         # Pass additional arguments to code review task
         if task_name == "code_review" and hasattr(task, 'set_review_params'):
-            task.set_review_params(base_branch, target_branch)
+            task.set_review_params(base_branch, target_branch, max_files, fast_mode)
         
         task.run()
         
@@ -171,6 +171,8 @@ Examples:
     # Code review specific arguments
     parser.add_argument("--base-branch", type=str, metavar="BRANCH", help="Base branch to compare against (default: main)")
     parser.add_argument("--target-branch", type=str, metavar="BRANCH", help="Target branch to compare (default: current changes)")
+    parser.add_argument("--max-files", type=int, metavar="N", help="Maximum number of files to review (default: 50)")
+    parser.add_argument("--fast-mode", action="store_true", help="Enable fast mode with parallel processing and shorter responses")
 
     args = parser.parse_args()
 
@@ -179,7 +181,7 @@ Examples:
     elif args.run:
         run_task(args.run, force_refresh=args.force_refresh, 
                 base_branch=args.base_branch, target_branch=args.target_branch,
-                repo_path=args.repo_path)
+                repo_path=args.repo_path, max_files=args.max_files, fast_mode=args.fast_mode)
     elif args.index:
         aidm_console.print_header("📁 Repository Indexing", f"Indexing: {args.index}")
         

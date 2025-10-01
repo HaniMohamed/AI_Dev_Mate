@@ -75,32 +75,74 @@ class GitService:
             return ""
     
     @staticmethod
-    def get_branch_diff(base_branch: str, target_branch: str = None, cwd: Optional[str] = None) -> str:
-        """Get diff between two branches or between base branch and current changes."""
+    def get_branch_diff(base_branch: str, target_branch: str = None, cwd: Optional[str] = None, 
+                       exclude_patterns: list = None, max_files: int = None) -> str:
+        """Get diff between two branches or between base branch and current changes.
+        
+        Args:
+            base_branch: Base branch/commit to compare from
+            target_branch: Target branch to compare to (None for working directory)
+            cwd: Working directory
+            exclude_patterns: List of file patterns to exclude (e.g., ['*.png', '*.jpg'])
+            max_files: Maximum number of files to include in diff
+        """
         if cwd and not GitService.is_git_repo(cwd):
             raise GitServiceError(f"Not a git repository: {cwd}")
         
-        if target_branch:
-            # Compare two specific branches
-            result = GitService._run_git_command(
-                ["git", "diff", f"{base_branch}..{target_branch}"], 
-                cwd
-            )
-        else:
-            # Compare base branch/commit with current working directory changes
-            # Handle special cases like HEAD~1 (previous commit)
-            if base_branch == "HEAD~1":
-                # Compare previous commit with current working directory
-                result = GitService._run_git_command(
-                    ["git", "diff", "HEAD~1"], 
-                    cwd
-                )
-            else:
-                result = GitService._run_git_command(
-                    ["git", "diff", base_branch], 
-                    cwd
-                )
+        # Build git diff command
+        cmd = ["git", "diff"]
         
+        # Add branch comparison first
+        if target_branch:
+            cmd.append(f"{base_branch}..{target_branch}")
+        else:
+            if base_branch == "HEAD~1":
+                cmd.append("HEAD~1")
+            else:
+                cmd.append(base_branch)
+        
+        # Add exclude patterns
+        if exclude_patterns:
+            cmd.append("--")
+            for pattern in exclude_patterns:
+                cmd.append(f":!{pattern}")
+        
+        # If max_files is specified, get file list first and limit
+        if max_files:
+            # Get list of changed files (without exclude patterns for file listing)
+            file_cmd = ["git", "diff", "--name-only"]
+            if target_branch:
+                file_cmd.append(f"{base_branch}..{target_branch}")
+            else:
+                if base_branch == "HEAD~1":
+                    file_cmd.append("HEAD~1")
+                else:
+                    file_cmd.append(base_branch)
+            
+            file_result = GitService._run_git_command(file_cmd, cwd)
+            files = [f.strip() for f in file_result.stdout.split('\n') if f.strip()]
+            
+            if len(files) > max_files:
+                # Limit to most important files (prioritize source code)
+                priority_extensions = ['.dart', '.py', '.js', '.ts', '.java', '.cpp', '.c', '.h', '.cs', '.go', '.rs']
+                important_files = []
+                other_files = []
+                
+                for file in files:
+                    if any(file.endswith(ext) for ext in priority_extensions):
+                        important_files.append(file)
+                    else:
+                        other_files.append(file)
+                
+                # Take important files first, then fill remaining slots with other files
+                selected_files = important_files[:max_files]
+                remaining_slots = max_files - len(selected_files)
+                selected_files.extend(other_files[:remaining_slots])
+                
+                # Create diff for selected files only
+                cmd.extend(["--"] + selected_files)
+        
+        result = GitService._run_git_command(cmd, cwd)
         return result.stdout
     
     @staticmethod
