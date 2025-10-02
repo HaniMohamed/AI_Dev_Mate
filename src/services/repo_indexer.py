@@ -12,6 +12,7 @@ from src.services.git_service import GitService
 from src.services.ollama_service import OllamaService
 from src.core.exceptions import IndexError, FileServiceError, GitServiceError
 from src.utils.console import aidm_console
+from src.core.utils import update_gitignore_for_aidm
 
 
 IGNORED_DIRS = {
@@ -451,6 +452,9 @@ class RepoIndexer:
             },
         }
 
+        # Update .gitignore to exclude .aidm and .aidm_index folders
+        update_gitignore_for_aidm(repo_path)
+        
         # Persist under .aidm_index/index.json inside the repo
         index_dir = os.path.join(repo_path, ".aidm_index")
         os.makedirs(index_dir, exist_ok=True)
