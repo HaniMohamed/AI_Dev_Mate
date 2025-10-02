@@ -5,7 +5,8 @@ import json
 from datetime import datetime
 from typing import Dict, List, Any
 from src.core.models import BaseTask
-from src.core.utils import check_and_load_index, create_aggressive_review_prompt, update_gitignore_for_aidm
+from src.core.utils import check_and_load_index, create_aggressive_review_prompt
+from src.utils.gitignore_utils import update_gitignore_for_aidm
 from src.services.ollama_service import OllamaService
 from src.services.git_service import GitService
 from src.utils.console import aidm_console

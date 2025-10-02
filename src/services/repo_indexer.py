@@ -12,7 +12,7 @@ from src.services.git_service import GitService
 from src.services.ollama_service import OllamaService
 from src.core.exceptions import IndexError, FileServiceError, GitServiceError
 from src.utils.console import aidm_console
-from src.core.utils import update_gitignore_for_aidm
+from src.utils.gitignore_utils import update_gitignore_for_aidm
 
 
 IGNORED_DIRS = {
