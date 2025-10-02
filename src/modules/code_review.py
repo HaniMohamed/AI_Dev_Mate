@@ -1,8 +1,6 @@
 # src/modules/code_review.py
 import os
-import json
 import re
-from datetime import datetime
 from typing import Dict, List, Any
 from src.core.models import BaseTask
 from src.core.utils import check_and_load_index, create_aggressive_review_prompt
@@ -18,7 +16,6 @@ class CodeReviewTask(BaseTask):
         self.repo_path = repo_path
         self.base_branch = "HEAD~1"  # Compare with previous commit instead of main branch
         self.target_branch = None
-        self.structured_review = {}  # Store structured review data
 
     def set_review_params(self, base_branch: str = None, target_branch: str = None, 
                          max_files: int = None, fast_mode: bool = False):
@@ -131,20 +128,6 @@ class CodeReviewTask(BaseTask):
         except Exception as e:
             aidm_console.print_error(f"Code review failed: {e}")
             self.review = f"Code review failed: {e}"
-        
-        # Generate structured review and save to JSON file
-        if self.review and not self.review.startswith("Code review failed"):
-            try:
-                # Get the diff content for file context
-                diff_content = ""
-                if hasattr(self, '_last_diff'):
-                    diff_content = self._last_diff
-                
-                self.structured_review = self._parse_review_to_structured(self.review, diff_content)
-                json_filepath = self._save_structured_review(self.structured_review)
-                aidm_console.print_success(f"📄 Structured review saved to: {json_filepath}")
-            except Exception as e:
-                aidm_console.print_warning(f"Failed to save structured review: {e}")
         
         self.completed = True
 
@@ -1277,28 +1260,6 @@ class CodeReviewTask(BaseTask):
         
         return recommendations
 
-    def _save_structured_review(self, structured_data: Dict[str, Any]) -> str:
-        """Save structured review to JSON file in the target repository."""
-        if not self.repo_path:
-            return "No repository path specified"
-        
-        try:
-            # Create .ai-dev-mate directory in the target repo
-            output_dir = os.path.join(self.repo_path, ".ai-dev-mate")
-            os.makedirs(output_dir, exist_ok=True)
-            
-            # Generate filename with timestamp
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"code_review_{timestamp}.json"
-            filepath = os.path.join(output_dir, filename)
-            
-            # Save structured data
-            with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(structured_data, f, indent=2, ensure_ascii=False)
-            
-            return filepath
-        except Exception as e:
-            return f"Failed to save structured review: {str(e)}"
 
     def _smart_chunked_review(self, diff: str, index_data: dict) -> str:
         """Review large diffs using smart chunking and parallel processing."""
@@ -1531,57 +1492,5 @@ Be direct and brief!"""
             aidm_console.print_separator()
             aidm_console.print_header("📋 Aggressive Review Results", "Comprehensive code analysis")
             aidm_console.print_markdown(self.review)
-            
-            # Display enhanced structured review summary if available
-            if self.structured_review:
-                aidm_console.print_separator()
-                aidm_console.print_header("📊 Enhanced Review Summary", "Comprehensive analysis overview")
-                
-                metadata = self.structured_review.get("review_metadata", {})
-                summary = self.structured_review.get("summary", {})
-                
-                aidm_console.print_info(f"📁 Files Analyzed: {metadata.get('total_files_analyzed', 0)}")
-                aidm_console.print_info(f"📈 Total Issues Found: {metadata.get('total_issues_found', 0)}")
-                aidm_console.print_info(f"🔒 Security Issues: {summary.get('security_issues', 0)}")
-                aidm_console.print_info(f"🐛 Critical Bugs: {summary.get('critical_issues', 0)}")
-                aidm_console.print_info(f"⚡ Performance Issues: {summary.get('performance_issues', 0)}")
-                aidm_console.print_info(f"✨ Code Quality Issues: {summary.get('code_quality_issues', 0)}")
-                aidm_console.print_info(f"📂 Files with Issues: {summary.get('files_with_issues', 0)}")
-                aidm_console.print_info(f"✅ Clean Files: {summary.get('files_clean', 0)}")
-                
-                # Show immediate actions
-                immediate_actions = self.structured_review.get("recommendations", {}).get("immediate_actions", [])
-                if immediate_actions:
-                    aidm_console.print_warning("🚨 Immediate Actions Required:")
-                    for i, action in enumerate(immediate_actions[:3], 1):  # Show top 3
-                        aidm_console.print_warning(f"  {i}. {action['action']}")
-                        aidm_console.print_info(f"     Reason: {action['reason']}")
-                        aidm_console.print_info(f"     Time: {action['estimated_time']}")
-                
-                # Show issues by file
-                issues = self.structured_review.get("issues", [])
-                if issues:
-                    aidm_console.print_primary("📁 Issues by File:")
-                    # Group issues by file
-                    issues_by_file = {}
-                    for issue in issues:
-                        file_path = issue.get("file_path", "unknown")
-                        if file_path not in issues_by_file:
-                            issues_by_file[file_path] = []
-                        issues_by_file[file_path].append(issue)
-                    
-                    # Show top 3 files with issues
-                    for file_path, file_issues in list(issues_by_file.items())[:3]:
-                        aidm_console.print_info(f"  📄 {file_path} ({len(file_issues)} issues)")
-                        for issue in file_issues[:2]:  # Show top 2 issues per file
-                            aidm_console.print_warning(f"    • {issue['title']} (Line {issue.get('line_number', 'N/A')})")
-                            aidm_console.print_info(f"      {issue['description']}")
-                
-                # Show next steps
-                next_steps = self.structured_review.get("next_steps", [])
-                if next_steps:
-                    aidm_console.print_success("🎯 Next Steps:")
-                    for step in next_steps[:3]:  # Show top 3 steps
-                        aidm_console.print_success(f"  {step}")
         
         return self.review
