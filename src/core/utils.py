@@ -88,20 +88,26 @@ REVIEW GUIDELINES - BE EXTREMELY CRITICAL:
 6. **MAINTAINABILITY**: Poor naming, lack of documentation, complex conditionals, missing tests
 7. **ARCHITECTURAL ISSUES**: Violation of separation of concerns, improper layering, circular dependencies
 
-REVIEW FORMAT:
-For each issue found, provide:
-- **SEVERITY**: CRITICAL/HIGH/MEDIUM/LOW
-- **CATEGORY**: Security/Performance/Bug/Anti-pattern/Maintainability/Architecture
-- **LOCATION**: File and line number if possible
-- **ISSUE**: Clear description of the problem
-- **IMPACT**: What could go wrong
-- **FIX**: Specific recommendation to resolve
+IMPORTANT: You MUST respond with valid JSON format only. Do not include any markdown formatting, explanations, or additional text.
+
+REQUIRED JSON FORMAT:
+{{
+  "reviews": [
+    {{
+      "file": "exact file path from diff",
+      "line": "line number if visible in diff, or null",
+      "category": "CRITICAL BUG|SECURITY|PERFORMANCE|CODE QUALITY|MAINTAINABILITY",
+      "issue": "clear description of the problem",
+      "recommendation": "specific recommendation to resolve the issue"
+    }}
+  ]
+}}
 
 BE BRUTALLY HONEST - Don't sugarcoat anything. If the code is bad, say it's bad. If there are security holes, call them out aggressively. If performance will suffer, be direct about it.
 
 DIFF TO REVIEW:
 {diff}
 
-Now conduct your aggressive review:"""
+Respond with JSON only:"""
     
     return prompt

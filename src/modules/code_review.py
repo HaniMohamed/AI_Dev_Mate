@@ -1450,6 +1450,21 @@ class CodeReviewTask(BaseTask):
 
 {context_info}
 
+IMPORTANT: You MUST respond with valid JSON format only. Do not include any markdown formatting, explanations, or additional text.
+
+REQUIRED JSON FORMAT:
+{{
+  "reviews": [
+    {{
+      "file": "exact file path from diff",
+      "line": "line number if visible in diff, or null",
+      "category": "CRITICAL BUG|SECURITY|PERFORMANCE|CODE QUALITY|MAINTAINABILITY",
+      "issue": "clear description of the problem",
+      "recommendation": "specific recommendation to resolve the issue"
+    }}
+  ]
+}}
+
 REVIEW THIS CODE CHANGES (be concise, max 200 words):
 {diff_chunk}
 
@@ -1458,9 +1473,7 @@ Find ONLY:
 2. **CRITICAL BUGS**: Null pointers, crashes, logic errors
 3. **PERFORMANCE**: Memory leaks, infinite loops, N+1 queries
 
-Format: **ISSUE**: Brief description | **FIX**: Quick solution
-
-Be direct and brief!"""
+Be direct and brief! Respond with JSON only:"""
         
         return prompt
 
