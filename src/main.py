@@ -69,7 +69,7 @@ def list_tasks():
     aidm_console.print_table(table)
     aidm_console.print_info("Use --run <task_name> to execute a task")
 
-def run_task(task_name: str, force_refresh: bool = False, base_branch: str = None, target_branch: str = None, repo_path: str = None, max_files: int = None, fast_mode: bool = False, model: str = None, ollama_host: str = None, temperature: float = None, max_tokens: int = None):
+def run_task(task_name: str, force_refresh: bool = False, base_branch: str = None, target_branch: str = None, repo_path: str = None, max_files: int = None, fast_mode: bool = False, serial_mode: bool = False, model: str = None, ollama_host: str = None, temperature: float = None, max_tokens: int = None):
     """Run a specific task with beautiful output."""
     if task_name not in AVAILABLE_TASKS:
         aidm_console.print_error(f"Task '{task_name}' not found!")
@@ -159,7 +159,7 @@ def run_task(task_name: str, force_refresh: bool = False, base_branch: str = Non
         
         # Pass additional arguments to code review task
         if task_name == "code_review" and hasattr(task, 'set_review_params'):
-            task.set_review_params(base_branch, target_branch, max_files, fast_mode)
+            task.set_review_params(base_branch, target_branch, max_files, fast_mode, serial_mode)
         
         task.run()
         
@@ -206,6 +206,7 @@ Examples:
     parser.add_argument("--target-branch", type=str, metavar="BRANCH", help="Target branch to compare (default: current changes)")
     parser.add_argument("--max-files", type=int, metavar="N", help="Maximum number of files to review (default: 50)")
     parser.add_argument("--fast-mode", action="store_true", help="Enable fast mode with parallel processing and shorter responses")
+    parser.add_argument("--serial", action="store_true", help="Force serial processing instead of parallel (slower but more reliable)")
     
     # Model configuration arguments
     parser.add_argument("--model", type=str, metavar="MODEL", help="Ollama model to use (e.g., codellama:13b, llama3.1:8b)")
@@ -221,7 +222,7 @@ Examples:
         run_task(args.run, force_refresh=args.force_refresh, 
                 base_branch=args.base_branch, target_branch=args.target_branch,
                 repo_path=args.repo_path, max_files=args.max_files, fast_mode=args.fast_mode,
-                model=args.model, ollama_host=args.ollama_host, 
+                serial_mode=args.serial, model=args.model, ollama_host=args.ollama_host, 
                 temperature=args.temperature, max_tokens=args.max_tokens)
     elif args.index:
         aidm_console.print_header("📁 Repository Indexing", f"Indexing: {args.index}")

@@ -21,12 +21,13 @@ class CodeReviewTask(BaseTask):
         self.target_branch = None
 
     def set_review_params(self, base_branch: str = None, target_branch: str = None, 
-                         max_files: int = None, fast_mode: bool = False):
+                         max_files: int = None, fast_mode: bool = False, serial_mode: bool = False):
         """Set review parameters for branch comparison."""
         self.base_branch = base_branch or "HEAD~1"  # Default to previous commit
         self.target_branch = target_branch
         self.max_files = max_files or 50  # Default to 50 files
         self.fast_mode = fast_mode
+        self.serial_mode = serial_mode
 
     def run(self):
         """Run aggressive code review with beautiful output."""
@@ -1546,6 +1547,11 @@ class CodeReviewTask(BaseTask):
         
         aidm_console.print_info(f"Created {total_chunks} smart chunks for analysis")
         
+        # Check if serial mode is enabled
+        if hasattr(self, 'serial_mode') and self.serial_mode:
+            aidm_console.print_info("Serial mode enabled - processing chunks sequentially")
+            return self._sequential_chunk_review(chunks, index_data)
+        
         reviews = []
         lock = threading.Lock()
         
@@ -1735,25 +1741,27 @@ class CodeReviewTask(BaseTask):
     def _sequential_chunk_review(self, chunks: list, index_data: dict) -> str:
         """Fallback sequential processing when parallel processing fails."""
         reviews = []
+        total_chunks = len(chunks)
         
-        aidm_console.print_info("Processing chunks sequentially...")
-        
-        for i, chunk in enumerate(chunks):
-            if len(chunk.strip()) == 0:
-                continue
-                
-            try:
-                aidm_console.print_info(f"Processing chunk {i+1}/{len(chunks)}...")
-                
-                # Create a shorter, focused prompt for faster responses
-                review_prompt = self._create_fast_review_prompt(chunk, index_data)
-                chunk_review = self.ollama.run_prompt(review_prompt)
-                
-                if chunk_review and not chunk_review.startswith("[ollama"):
-                    reviews.append(chunk_review)
-                else:
-                    # Basic fallback JSON review
-                    fallback_json = '''{
+        # Use progress bar for sequential processing
+        with aidm_console.create_progress("Generating sequential reviews") as progress:
+            task = progress.add_task("Processing chunks sequentially...", total=total_chunks)
+            
+            for i, chunk in enumerate(chunks):
+                if len(chunk.strip()) == 0:
+                    progress.update(task, advance=1)
+                    continue
+                    
+                try:
+                    # Create a shorter, focused prompt for faster responses
+                    review_prompt = self._create_fast_review_prompt(chunk, index_data)
+                    chunk_review = self.ollama.run_prompt(review_prompt)
+                    
+                    if chunk_review and not chunk_review.startswith("[ollama"):
+                        reviews.append(chunk_review)
+                    else:
+                        # Basic fallback JSON review
+                        fallback_json = '''{
   "reviews": [
     {
       "file": "unknown",
@@ -1778,12 +1786,12 @@ class CodeReviewTask(BaseTask):
     }
   ]
 }'''
-                    reviews.append(fallback_json)
-                    
-            except Exception as e:
-                aidm_console.print_warning(f"Chunk {i+1} failed: {e}")
-                # Add fallback JSON review
-                fallback_json = '''{
+                        reviews.append(fallback_json)
+                        
+                except Exception as e:
+                    aidm_console.print_warning(f"Chunk {i+1} failed: {e}")
+                    # Add fallback JSON review
+                    fallback_json = '''{
   "reviews": [
     {
       "file": "unknown",
@@ -1808,7 +1816,10 @@ class CodeReviewTask(BaseTask):
     }
   ]
 }'''
-                reviews.append(fallback_json)
+                    reviews.append(fallback_json)
+                
+                # Update progress after each chunk
+                progress.update(task, advance=1)
         
         # Store chunk responses for merging
         self._chunk_responses = reviews
