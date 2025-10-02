@@ -1,6 +1,8 @@
 # src/modules/code_review.py
 import os
 import re
+import json
+from datetime import datetime
 from typing import Dict, List, Any
 from src.core.models import BaseTask
 from src.core.utils import check_and_load_index, create_aggressive_review_prompt
@@ -124,6 +126,20 @@ class CodeReviewTask(BaseTask):
                         progress.update(task, completed=100)
                 
                 aidm_console.print_success("Aggressive code review completed!")
+                
+                # Process and merge chunk responses if using chunked review
+                if hasattr(self, '_chunk_responses') and self._chunk_responses:
+                    aidm_console.print_info("Merging chunk reviews into comprehensive JSON...")
+                    
+                    # Merge all chunk responses into a single JSON
+                    merged_json = self._merge_chunk_reviews_to_json(self._chunk_responses, diff)
+                    
+                    # Save the merged JSON to the target repository
+                    json_filepath = self._save_merged_review_json(merged_json)
+                    if json_filepath and not json_filepath.startswith("Failed"):
+                        aidm_console.print_success(f"📄 Comprehensive review saved to: {json_filepath}")
+                    else:
+                        aidm_console.print_warning(f"Failed to save merged review: {json_filepath}")
                 
         except Exception as e:
             aidm_console.print_error(f"Code review failed: {e}")
@@ -1260,6 +1276,196 @@ class CodeReviewTask(BaseTask):
         
         return recommendations
 
+    def _merge_chunk_reviews_to_json(self, chunk_responses: List[str], diff_content: str = None) -> Dict[str, Any]:
+        """Merge multiple chunk JSON responses into a single comprehensive JSON with metadata."""
+        all_reviews = []
+        total_chunks = len(chunk_responses)
+        successful_chunks = 0
+        failed_chunks = 0
+        
+        # Extract file information from diff
+        files_in_diff = self._extract_files_from_diff(diff_content) if diff_content else []
+        
+        # Process each chunk response
+        for i, chunk_response in enumerate(chunk_responses):
+            try:
+                # Try to extract JSON from the chunk response
+                json_data = self._extract_json_from_chunk_response(chunk_response)
+                if json_data and 'reviews' in json_data:
+                    all_reviews.extend(json_data['reviews'])
+                    successful_chunks += 1
+                else:
+                    failed_chunks += 1
+            except Exception as e:
+                aidm_console.print_warning(f"Failed to parse chunk {i+1}: {e}")
+                failed_chunks += 1
+        
+        # Generate metadata
+        metadata = self._generate_review_metadata(all_reviews, files_in_diff, total_chunks, successful_chunks, failed_chunks)
+        
+        # Create the merged JSON structure
+        merged_json = {
+            "reviews": all_reviews,
+            "metadata": metadata
+        }
+        
+        return merged_json
+
+    def _extract_json_from_chunk_response(self, chunk_response: str) -> Dict[str, Any]:
+        """Extract JSON data from a chunk response, handling various formats."""
+        import json
+        import re
+        
+        # Try to find JSON block in the response
+        json_patterns = [
+            r'```json\s*(.*?)\s*```',
+            r'```\s*(.*?)\s*```',
+            r'(\{.*\})',
+        ]
+        
+        for pattern in json_patterns:
+            matches = re.findall(pattern, chunk_response, re.DOTALL)
+            for match in matches:
+                try:
+                    return json.loads(match.strip())
+                except json.JSONDecodeError:
+                    continue
+        
+        # If no JSON block found, try to parse the entire response
+        try:
+            return json.loads(chunk_response.strip())
+        except json.JSONDecodeError:
+            return None
+
+    def _extract_files_from_diff(self, diff_content: str) -> List[str]:
+        """Extract file paths from git diff content."""
+        files = []
+        lines = diff_content.split('\n')
+        
+        for line in lines:
+            # Git diff file headers
+            if line.startswith('diff --git'):
+                parts = line.split()
+                if len(parts) >= 4:
+                    file_path = parts[3][2:]  # Remove "b/" prefix
+                    if file_path not in files:
+                        files.append(file_path)
+            elif line.startswith('+++'):
+                file_path = line[4:]  # Remove "+++ " prefix
+                if file_path != '/dev/null' and file_path not in files:
+                    files.append(file_path)
+        
+        return files
+
+    def _generate_review_metadata(self, reviews: List[Dict], files_in_diff: List[str], 
+                                 total_chunks: int, successful_chunks: int, failed_chunks: int) -> Dict[str, Any]:
+        """Generate comprehensive metadata about the review."""
+        # Count issues by category
+        category_counts = {}
+        files_with_issues = set()
+        total_issues = len(reviews)
+        
+        for review in reviews:
+            category = review.get('category', 'UNKNOWN')
+            category_counts[category] = category_counts.get(category, 0) + 1
+            
+            file_path = review.get('file', 'unknown')
+            if file_path != 'unknown':
+                files_with_issues.add(file_path)
+        
+        # Calculate severity distribution
+        severity_counts = {}
+        for review in reviews:
+            category = review.get('category', 'UNKNOWN')
+            if category == 'CRITICAL BUG':
+                severity_counts['critical'] = severity_counts.get('critical', 0) + 1
+            elif category == 'SECURITY':
+                severity_counts['security'] = severity_counts.get('security', 0) + 1
+            elif category == 'PERFORMANCE':
+                severity_counts['performance'] = severity_counts.get('performance', 0) + 1
+            else:
+                severity_counts['other'] = severity_counts.get('other', 0) + 1
+        
+        return {
+            "review_info": {
+                "reviewed_at": datetime.now().isoformat(),
+                "reviewer": "AI Dev Mate Code Review Bot",
+                "total_chunks_processed": total_chunks,
+                "successful_chunks": successful_chunks,
+                "failed_chunks": failed_chunks,
+                "success_rate": f"{(successful_chunks / total_chunks * 100):.1f}%" if total_chunks > 0 else "0%"
+            },
+            "file_statistics": {
+                "total_files_in_diff": len(files_in_diff),
+                "files_with_issues": len(files_with_issues),
+                "clean_files": len(files_in_diff) - len(files_with_issues),
+                "files_reviewed": list(files_with_issues)
+            },
+            "issue_statistics": {
+                "total_issues_found": total_issues,
+                "issues_by_category": category_counts,
+                "issues_by_severity": severity_counts,
+                "average_issues_per_file": round(total_issues / len(files_with_issues), 2) if files_with_issues else 0
+            },
+            "summary": {
+                "overall_assessment": self._generate_overall_assessment(category_counts, total_issues),
+                "priority_level": self._determine_priority_level(category_counts),
+                "recommendations_count": total_issues
+            }
+        }
+
+    def _generate_overall_assessment(self, category_counts: Dict[str, int], total_issues: int) -> str:
+        """Generate an overall assessment based on the issues found."""
+        if total_issues == 0:
+            return "No issues found. Code appears to be clean and well-structured."
+        
+        critical_bugs = category_counts.get('CRITICAL BUG', 0)
+        security_issues = category_counts.get('SECURITY', 0)
+        performance_issues = category_counts.get('PERFORMANCE', 0)
+        
+        if critical_bugs > 0:
+            return f"Critical issues detected ({critical_bugs} critical bugs). Immediate attention required."
+        elif security_issues > 0:
+            return f"Security concerns identified ({security_issues} security issues). Review recommended."
+        elif performance_issues > 0:
+            return f"Performance issues found ({performance_issues} performance issues). Optimization recommended."
+        else:
+            return f"Code quality issues identified ({total_issues} total issues). Improvements recommended."
+
+    def _determine_priority_level(self, category_counts: Dict[str, int]) -> str:
+        """Determine the overall priority level based on issue categories."""
+        critical_bugs = category_counts.get('CRITICAL BUG', 0)
+        security_issues = category_counts.get('SECURITY', 0)
+        
+        if critical_bugs > 0 or security_issues > 0:
+            return "HIGH"
+        elif sum(category_counts.values()) > 5:
+            return "MEDIUM"
+        else:
+            return "LOW"
+
+    def _save_merged_review_json(self, merged_data: Dict[str, Any]) -> str:
+        """Save the merged review JSON to the target repository."""
+        if not self.repo_path:
+            return "No repository path specified"
+        
+        try:
+            # Create .aidm directory in the target repo
+            output_dir = os.path.join(self.repo_path, ".aidm")
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Generate filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"code_review_{timestamp}.json"
+            filepath = os.path.join(output_dir, filename)
+            
+            # Save merged data
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(merged_data, f, indent=2, ensure_ascii=False)
+            
+            return filepath
+        except Exception as e:
+            return f"Failed to save merged review: {str(e)}"
 
     def _smart_chunked_review(self, diff: str, index_data: dict) -> str:
         """Review large diffs using smart chunking and parallel processing."""
@@ -1292,14 +1498,62 @@ class CodeReviewTask(BaseTask):
                 chunk_review = self.ollama.run_prompt(review_prompt)
                 
                 if chunk_review and not chunk_review.startswith("[ollama"):
-                    return f"## Chunk {chunk_idx+1} Review\n{chunk_review}"
+                    return chunk_review
                 else:
-                    # If Ollama failed, return a basic analysis
-                    return f"## Chunk {chunk_idx+1} Review\n# Basic Analysis\n1. SECURITY: Potential security issues detected | FIX: Review code for security vulnerabilities\n2. CRITICAL BUGS: Potential bugs detected | FIX: Review code for critical issues\n3. PERFORMANCE: Potential performance issues detected | FIX: Review code for performance optimization"
+                    # If Ollama failed, return a basic JSON analysis
+                    return '''{
+  "reviews": [
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "SECURITY",
+      "issue": "Potential security issues detected",
+      "recommendation": "Review code manually for security vulnerabilities"
+    },
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "CRITICAL BUG",
+      "issue": "Potential bugs detected",
+      "recommendation": "Review code manually for critical issues"
+    },
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "PERFORMANCE",
+      "issue": "Potential performance issues detected",
+      "recommendation": "Review code manually for performance optimization"
+    }
+  ]
+}'''
             except Exception as e:
                 aidm_console.print_warning(f"Chunk {chunk_idx+1} processing failed: {e}")
-                # Return a fallback review for this chunk
-                return f"## Chunk {chunk_idx+1} Review\n# Fallback Analysis\n1. SECURITY: Manual review required | FIX: Review code manually for security issues\n2. CRITICAL BUGS: Manual review required | FIX: Review code manually for bugs\n3. PERFORMANCE: Manual review required | FIX: Review code manually for performance"
+                # Return a fallback JSON review for this chunk
+                return '''{
+  "reviews": [
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "SECURITY",
+      "issue": "Manual review required",
+      "recommendation": "Review code manually for security issues"
+    },
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "CRITICAL BUG",
+      "issue": "Manual review required",
+      "recommendation": "Review code manually for bugs"
+    },
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "PERFORMANCE",
+      "issue": "Manual review required",
+      "recommendation": "Review code manually for performance"
+    }
+  ]
+}'''
         
         # Process chunks in parallel (limit to 2 concurrent requests to prevent timeouts)
         with aidm_console.create_progress("Generating parallel reviews") as progress:
@@ -1325,14 +1579,62 @@ class CodeReviewTask(BaseTask):
                             completed_chunks += 1
                         except concurrent.futures.TimeoutError:
                             aidm_console.print_warning(f"Chunk {chunk_idx+1} timed out after 60 seconds")
-                            # Add fallback review for timed out chunk
-                            fallback_review = f"## Chunk {chunk_idx+1} Review\n# Timeout Analysis\n1. SECURITY: Manual review required | FIX: Review code manually for security issues\n2. CRITICAL BUGS: Manual review required | FIX: Review code manually for bugs\n3. PERFORMANCE: Manual review required | FIX: Review code manually for performance"
+                            # Add fallback JSON review for timed out chunk
+                            fallback_review = '''{
+  "reviews": [
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "SECURITY",
+      "issue": "Manual review required",
+      "recommendation": "Review code manually for security issues"
+    },
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "CRITICAL BUG",
+      "issue": "Manual review required",
+      "recommendation": "Review code manually for bugs"
+    },
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "PERFORMANCE",
+      "issue": "Manual review required",
+      "recommendation": "Review code manually for performance"
+    }
+  ]
+}'''
                             reviews.append(fallback_review)
                             completed_chunks += 1
                         except Exception as e:
                             aidm_console.print_warning(f"Chunk {chunk_idx+1} failed: {e}")
-                            # Add fallback review for failed chunk
-                            fallback_review = f"## Chunk {chunk_idx+1} Review\n# Error Analysis\n1. SECURITY: Manual review required | FIX: Review code manually for security issues\n2. CRITICAL BUGS: Manual review required | FIX: Review code manually for bugs\n3. PERFORMANCE: Manual review required | FIX: Review code manually for performance"
+                            # Add fallback JSON review for failed chunk
+                            fallback_review = '''{
+  "reviews": [
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "SECURITY",
+      "issue": "Manual review required",
+      "recommendation": "Review code manually for security issues"
+    },
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "CRITICAL BUG",
+      "issue": "Manual review required",
+      "recommendation": "Review code manually for bugs"
+    },
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "PERFORMANCE",
+      "issue": "Manual review required",
+      "recommendation": "Review code manually for performance"
+    }
+  ]
+}'''
                             reviews.append(fallback_review)
                             completed_chunks += 1
                         
@@ -1344,11 +1646,18 @@ class CodeReviewTask(BaseTask):
                     for future in future_to_chunk:
                         future.cancel()
         
-        # Combine all reviews
+        # Store chunk responses for merging
+        self._chunk_responses = reviews
+        
+        # Return a simple summary for display
         if reviews:
             combined_review = f"# Fast Code Review ({len(reviews)}/{total_chunks} chunks analyzed)\n\n"
-            combined_review += "\n\n".join(reviews)
-            combined_review += f"\n\n## Summary\nAnalyzed {len(reviews)} out of {total_chunks} chunks. Some chunks may have timed out or failed."
+            # Add a summary of the first few reviews for display
+            for i, review in enumerate(reviews[:3]):  # Show first 3 reviews
+                combined_review += f"## Chunk {i+1} Review\n{review}\n\n"
+            if len(reviews) > 3:
+                combined_review += f"... and {len(reviews) - 3} more chunks analyzed.\n\n"
+            combined_review += f"## Summary\nAnalyzed {len(reviews)} out of {total_chunks} chunks. Some chunks may have timed out or failed."
             return combined_review
         else:
             # Fallback: try sequential processing if parallel completely fails
@@ -1373,20 +1682,77 @@ class CodeReviewTask(BaseTask):
                 chunk_review = self.ollama.run_prompt(review_prompt)
                 
                 if chunk_review and not chunk_review.startswith("[ollama"):
-                    reviews.append(f"## Chunk {i+1} Review\n{chunk_review}")
+                    reviews.append(chunk_review)
                 else:
-                    # Basic fallback review
-                    reviews.append(f"## Chunk {i+1} Review\n# Basic Analysis\n1. SECURITY: Potential security issues detected | FIX: Review code for security vulnerabilities\n2. CRITICAL BUGS: Potential bugs detected | FIX: Review code for critical issues\n3. PERFORMANCE: Potential performance issues detected | FIX: Review code for performance optimization")
+                    # Basic fallback JSON review
+                    fallback_json = '''{
+  "reviews": [
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "SECURITY",
+      "issue": "Potential security issues detected",
+      "recommendation": "Review code manually for security vulnerabilities"
+    },
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "CRITICAL BUG",
+      "issue": "Potential bugs detected",
+      "recommendation": "Review code manually for critical issues"
+    },
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "PERFORMANCE",
+      "issue": "Potential performance issues detected",
+      "recommendation": "Review code manually for performance optimization"
+    }
+  ]
+}'''
+                    reviews.append(fallback_json)
                     
             except Exception as e:
                 aidm_console.print_warning(f"Chunk {i+1} failed: {e}")
-                # Add fallback review
-                reviews.append(f"## Chunk {i+1} Review\n# Error Analysis\n1. SECURITY: Manual review required | FIX: Review code manually for security issues\n2. CRITICAL BUGS: Manual review required | FIX: Review code manually for bugs\n3. PERFORMANCE: Manual review required | FIX: Review code manually for performance")
+                # Add fallback JSON review
+                fallback_json = '''{
+  "reviews": [
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "SECURITY",
+      "issue": "Manual review required",
+      "recommendation": "Review code manually for security issues"
+    },
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "CRITICAL BUG",
+      "issue": "Manual review required",
+      "recommendation": "Review code manually for bugs"
+    },
+    {
+      "file": "unknown",
+      "line": null,
+      "category": "PERFORMANCE",
+      "issue": "Manual review required",
+      "recommendation": "Review code manually for performance"
+    }
+  ]
+}'''
+                reviews.append(fallback_json)
+        
+        # Store chunk responses for merging
+        self._chunk_responses = reviews
         
         if reviews:
             combined_review = f"# Sequential Code Review ({len(reviews)} chunks analyzed)\n\n"
-            combined_review += "\n\n".join(reviews)
-            combined_review += f"\n\n## Summary\nAnalyzed {len(reviews)} chunks sequentially. Some chunks may have failed."
+            # Add a summary of the first few reviews for display
+            for i, review in enumerate(reviews[:3]):  # Show first 3 reviews
+                combined_review += f"## Chunk {i+1} Review\n{review}\n\n"
+            if len(reviews) > 3:
+                combined_review += f"... and {len(reviews) - 3} more chunks analyzed.\n\n"
+            combined_review += f"## Summary\nAnalyzed {len(reviews)} chunks sequentially. Some chunks may have failed."
             return combined_review
         else:
             return "Failed to generate reviews for any chunks using sequential processing."
