@@ -1357,6 +1357,66 @@ class CodeReviewTask(BaseTask):
         
         return files
 
+    def _get_git_metadata(self) -> Dict[str, Any]:
+        """Get git metadata including branch names and commit hashes."""
+        git_info = {
+            "base_branch": self.base_branch,
+            "target_branch": self.target_branch,
+            "base_commit_hash": None,
+            "target_commit_hash": None,
+            "current_branch": None,
+            "repository_path": self.repo_path
+        }
+        
+        try:
+            from src.services.git_service import GitService
+            import subprocess
+            
+            # Get current branch
+            git_info["current_branch"] = GitService.get_current_branch(self.repo_path)
+            
+            # Helper function to get commit hash
+            def get_commit_hash(ref):
+                try:
+                    result = subprocess.run(
+                        ["git", "rev-parse", ref],
+                        cwd=self.repo_path,
+                        capture_output=True,
+                        text=True,
+                        check=True
+                    )
+                    return result.stdout.strip()
+                except subprocess.CalledProcessError:
+                    return "unknown"
+            
+            # Get commit hashes for base and target branches
+            if self.base_branch:
+                try:
+                    git_info["base_commit_hash"] = get_commit_hash(self.base_branch)
+                except Exception as e:
+                    aidm_console.print_warning(f"Could not get base commit hash: {e}")
+                    git_info["base_commit_hash"] = "unknown"
+            
+            if self.target_branch:
+                try:
+                    git_info["target_commit_hash"] = get_commit_hash(self.target_branch)
+                except Exception as e:
+                    aidm_console.print_warning(f"Could not get target commit hash: {e}")
+                    git_info["target_commit_hash"] = "unknown"
+            else:
+                # If no target branch specified, use current HEAD
+                try:
+                    git_info["target_commit_hash"] = get_commit_hash("HEAD")
+                except Exception as e:
+                    aidm_console.print_warning(f"Could not get current commit hash: {e}")
+                    git_info["target_commit_hash"] = "unknown"
+            
+        except Exception as e:
+            aidm_console.print_warning(f"Could not get git metadata: {e}")
+            git_info["error"] = str(e)
+        
+        return git_info
+
     def _generate_review_metadata(self, reviews: List[Dict], files_in_diff: List[str], 
                                  total_chunks: int, successful_chunks: int, failed_chunks: int) -> Dict[str, Any]:
         """Generate comprehensive metadata about the review."""
@@ -1386,6 +1446,9 @@ class CodeReviewTask(BaseTask):
             else:
                 severity_counts['other'] = severity_counts.get('other', 0) + 1
         
+        # Get git information
+        git_info = self._get_git_metadata()
+        
         return {
             "review_info": {
                 "reviewed_at": datetime.now().isoformat(),
@@ -1395,6 +1458,7 @@ class CodeReviewTask(BaseTask):
                 "failed_chunks": failed_chunks,
                 "success_rate": f"{(successful_chunks / total_chunks * 100):.1f}%" if total_chunks > 0 else "0%"
             },
+            "git_info": git_info,
             "file_statistics": {
                 "total_files_in_diff": len(files_in_diff),
                 "files_with_issues": len(files_with_issues),
